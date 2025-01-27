@@ -4,19 +4,27 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import accuracy_score, classification_report
-import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import string
 from nltk.stem import PorterStemmer
+from fastapi import FastAPI
+from pydantic import BaseModel
+import logging
+import nltk
 
+nltk.data.path.append("C:/Users/user-admin/Desktop/Spam Email Detetion/venv/Lib/site-packages/nltk/tokenize/punkt.py")
+logging.getLogger('nltk').setLevel(logging.CRITICAL)
 nltk.download('stopwords')
 nltk.download('punkt_tab')
 
 def preprocess_text(text):
     ps = PorterStemmer()
     stop_words = set(stopwords.words('english'))
+    if isinstance(text,list):
+        text = "".join([str(item) for sublist in text for item in (sublist if isinstance(sublist,list) else [sublist])])
     words = word_tokenize(text.lower())
+    #print(type(text))
     filtered_word = [ps.stem(w) for w in words if w not in stop_words and w.isalnum()]
     return " ".join(filtered_word)  
     
@@ -54,3 +62,27 @@ text_email_2 = "Hi John, can we reschedule our meeting to tomorrow morning?"
 
 print(f"Text Email 1:{predict_spam(text_email_1)}")
 print(f"Text Email 2:{predict_spam(text_email_2)}")
+
+app = FastAPI()
+
+class Prediction_input(BaseModel):
+    mail: str
+    
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins =["*"],
+    allow_methods = ["*"],
+    allow_headers = ["*"],
+)
+@app.get("/")
+def read_root():
+    return {"message":"Service is lived"}
+
+@app.post("/predict")
+def predict(input_data:Prediction_input):
+    features = [[
+        input_data.mail
+    ]]
+    prediction = predict_spam(features)
+    return {"prediction": str(prediction)}
